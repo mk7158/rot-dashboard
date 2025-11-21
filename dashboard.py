@@ -95,7 +95,11 @@ else:
 
 final_df = pd.concat([metrics, scores], axis=1).sort_values('EI', ascending=False)
 
-final_df = final_df.replace([np.inf, -np.inf], np.nan).dropna() 
+for col in final_df.columns:
+    if col != 'Ticker':
+        final_df[col] = pd.to_numeric(final_df[col], errors='coerce')
+
+final_df = final_df.replace([np.inf, -np.inf], np.nan).dropna(how='any')
 
 col1, col2 = st.columns([2, 1])
 
