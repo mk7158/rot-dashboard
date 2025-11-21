@@ -101,6 +101,10 @@ for col in final_df.columns:
 
 final_df = final_df.replace([np.inf, -np.inf], np.nan).dropna(how='any')
 
+if final_df.empty:
+    st.warning(f"Warning: No valid data available for the '{selected_sector}' sector after cleaning. Check ticker symbols or lookback period.")
+    st.stop()
+
 col1, col2 = st.columns([2, 1])
 
 with col1:
