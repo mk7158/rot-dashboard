@@ -95,6 +95,8 @@ else:
 
 final_df = pd.concat([metrics, scores], axis=1).sort_values('EI', ascending=False)
 
+final_df = final_df.replace([np.inf, -np.inf], np.nan).dropna() 
+
 col1, col2 = st.columns([2, 1])
 
 with col1:
