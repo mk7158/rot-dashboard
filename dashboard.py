@@ -34,19 +34,25 @@ with st.sidebar:
 tickers = SECTORS[selected_sector]
 full_list = list(set(tickers + [BENCHMARK]))
 
-# Caching function is required for dashboard performance
 @st.cache_data(ttl=300) 
 def get_data(ticker_list):
     try:
         df = yf.download(ticker_list, period="2y", auto_adjust=True, progress=False)
-        # Handle multi-index if returned
+        
         if isinstance(df.columns, pd.MultiIndex):
             try:
                 return df['Close']
             except KeyError:
-                return df.iloc[:, :len(ticker_list)] 
-        return df['Close']
-    except:
+                return df.iloc[:, :len(ticker_list)]
+        
+        if isinstance(df, pd.Series):
+            return df.to_frame()
+            
+        if 'Close' in df.columns:
+            return df['Close']
+            
+        return df
+    except Exception:
         return pd.DataFrame()
 
 raw_data = get_data(full_list)
@@ -57,7 +63,12 @@ if raw_data.empty:
 
 raw_data = raw_data.dropna(axis=1, how='all')
 data_window = raw_data.iloc[-lookback:]
+
 returns = data_window.pct_change(fill_method=None).dropna()
+
+if returns.empty:
+    st.error("Not enough data points to calculate returns.")
+    st.stop()
 
 metrics = pd.DataFrame(index=returns.columns)
 metrics['Return'] = returns.mean() * 252
@@ -102,7 +113,7 @@ for col in final_df.columns:
 final_df = final_df.replace([np.inf, -np.inf], np.nan).dropna(how='any')
 
 if final_df.empty:
-    st.warning(f"Warning: No valid data available for the '{selected_sector}' sector after cleaning. Check ticker symbols or lookback period.")
+    st.warning(f"Warning: No valid data available for the '{selected_sector}' sector after cleaning.")
     st.stop()
 
 col1, col2 = st.columns([2, 1])
@@ -121,7 +132,6 @@ with col1:
         height=500
     )
     
-    # Add crosshair lines for Benchmark
     if BENCHMARK in final_df.index:
         bench_vol = final_df.loc[BENCHMARK, 'Volatility']
         bench_ret = final_df.loc[BENCHMARK, 'Return']
@@ -133,14 +143,16 @@ with col1:
 
 with col2:
     st.subheader("RoT Rankings")
-    final_df['Color'] = np.where(final_df['RoT'] >= 0, 'green', 'red')
+    chart_df = final_df.copy()
+    chart_df['Color'] = np.where(chart_df['RoT'] >= 0, 'green', 'red')
+    
     fig_bar = go.Figure()
     fig_bar.add_trace(go.Bar(
-        y=final_df.index,
-        x=final_df['RoT'],
+        y=chart_df.index,
+        x=chart_df['RoT'],
         orientation='h',
-        marker_color=final_df['Color'],
-        text=final_df['RoT'].apply(lambda x: f"{x:.1%}"),
+        marker_color=chart_df['Color'],
+        text=chart_df['RoT'].apply(lambda x: f"{x:.1%}"),
         textposition='auto'
     ))
     fig_bar.update_layout(title="Risk of Target %", height=500)
